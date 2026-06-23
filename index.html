@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ML Image Enhancement</title>
+  </head>
+  <body>
+    <main class="app">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Browser ML module</p>
+          <h1>Real-time image enhancement</h1>
+          <p class="subtitle">
+            Lightweight client-side enhancement for brightness, contrast and colorfulness.
+            Processing runs asynchronously in a Web Worker.
+          </p>
+        </div>
+        <div class="stats">
+          <div><b>≤ 15 MP</b><span>target input size</span></div>
+          <div><b>≤ 30 s</b><span>max target time</span></div>
+          <div><b>&lt; 10 MB</b><span>solution target</span></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <label class="dropzone" id="dropzone">
+          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/bmp,image/heic,image/heif,.jpg,.jpeg,.png,.bmp,.heic,.heif" />
+          <span>Drop image here or click to upload</span>
+          <small>JPG, PNG, BMP, HEIC/HEIF</small>
+        </label>
+
+        <div class="actions">
+          <button id="startBtn" disabled>Enhance image</button>
+          <button id="cancelBtn" disabled class="secondary">Cancel</button>
+          <a id="downloadBtn" hidden download="enhanced-image.png">Download result</a>
+        </div>
+
+        <div class="progress-wrap">
+          <div class="progress-info">
+            <span id="statusText">Waiting for image</span>
+            <span id="progressText">0%</span>
+          </div>
+          <div class="progress"><div id="progressBar"></div></div>
+        </div>
+      </section>
+
+      <section class="preview-grid">
+        <article>
+          <h2>Original</h2>
+          <img id="originalPreview" alt="Original preview" />
+        </article>
+        <article>
+          <h2>Enhanced</h2>
+          <img id="resultPreview" alt="Enhanced preview" />
+        </article>
+      </section>
+
+      <section class="api-card">
+        <h2>Module API</h2>
+        <pre><code>const taskId = await enhancer.enqueueTask(file)
+const status = enhancer.getStatus(taskId)
+enhancer.cancelTask(taskId)
+const blob = enhancer.getResult(taskId)
+enhancer.addEventListener('statuschange', handler)</code></pre>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
