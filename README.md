@@ -1,24 +1,46 @@
-# Browser ML Image Enhancement
+# Улучшение изображений в браузере
 
-Client-side image enhancement module that runs in the user's browser. The system automatically selects correction parameters for brightness, contrast, saturation, and gamma with a lightweight ML regressor, then applies the correction asynchronously in a Web Worker.
+Веб-система для улучшения качества изображений прямо в браузере пользователя. Проект реализует клиентский ML-модуль: модель локально подбирает параметры коррекции качества изображения, а вспомогательный алгоритм применяет коррекцию яркости, контрастности, цветности и gamma в `Web Worker`.
 
-The project is designed for the required browser API workflow:
+Изображение не отправляется на сервер. Обработка выполняется асинхронно, с отображением статуса, прогресса и времени выполнения.
 
-1. Submit an image for processing and receive a task id.
-2. Track task status and progress through API methods or `statuschange` events.
-3. Cancel a task if needed.
-4. Download the processed image when the task is complete.
+## Что сделано
 
-## Features
+- Реализован пользовательский интерфейс для загрузки, обработки, сравнения и скачивания изображения.
+- Реализован публичный API модуля для постановки задачи, проверки статуса, отмены задачи и получения результата.
+- Реализованы события изменения статуса и прогресса через `statuschange`.
+- Обработка вынесена в `Web Worker`, поэтому основной поток браузера не блокируется.
+- Добавлена проверка размера входного изображения: максимум 15 мегапикселей.
+- Поддержаны форматы JPG, PNG, BMP, HEIC/HEIF.
+- Обучена компактная ML-модель, которая работает в браузере без тяжелых ML-библиотек.
+- Добавлен notebook для обучения, валидации и просмотра примеров результата.
+- Подготовлен workflow для деплоя на GitHub Pages.
 
-- Runs fully in the browser, without backend upload.
-- Uses a Web Worker, so processing does not block the UI.
-- Supports task API: `enqueueTask`, `getStatus`, `cancelTask`, `getResult`.
-- Emits progress/status events.
-- Supports JPG, PNG, BMP, HEIC/HEIF input.
-- Rejects images above 15 megapixels.
-- Keeps the runtime bundle under the 10 MB project limit.
-- Shows processing time in the interface.
+## Данные
+
+Для обучения и проверки использован датасет:
+
+[Image Super Resolution (from Unsplash) на Kaggle](https://www.kaggle.com/datasets/quadeer15sh/image-super-resolution-from-unsplash?resource=download&select=Image+Super+Resolution+-+Unsplash)
+
+По описанию Kaggle, датасет собран на основе изображений Unsplash и подготовлен для задачи image super-resolution. В нём есть high-resolution изображения и low-resolution версии, созданные на нескольких уровнях уменьшения качества. Лицензия датасета указана как **CC0: Public Domain**.
+
+Так как в задании требуется не super-resolution, а улучшение изображения по параметрам яркости, контрастности и цветности, датасет был использован следующим образом:
+
+1. Папка `high res` использовалась как набор эталонных качественных изображений.
+2. Скрипт `ml/create_synthetic_pairs.py` создавал из них пары `low/high`, где `low` — искусственно ухудшенная версия изображения, а `high` — эталон.
+3. Ухудшения включали изменение яркости, контрастности, цветности, gamma, легкий blur/noise и JPEG-сжатие.
+4. На этих парах обучалась модель выбора параметров коррекции.
+
+Текущая конфигурация обучения:
+
+- всего пар: `2400`;
+- train: `1920`;
+- validation: `480`;
+- разделение: `80/20`;
+- hidden units: `24`;
+- эпохи: `4000`;
+- метрики сохраняются в `ml/training_metrics.json`;
+- веса браузерной модели экспортируются в `src/modelWeights.js`.
 
 ## Пример работы сервиса
 
@@ -26,67 +48,54 @@ The project is designed for the required browser API workflow:
 
 ![Примеры улучшения изображений](docs/example_results.jpg)
 
-## How To Run
+## Соответствие требованиям
 
-Install dependencies:
+| Требование | Реализация в проекте |
+| --- | --- |
+| ML-модель запускается в браузере пользователя | Да. Веса модели находятся в `src/modelWeights.js`, inference выполняется в `src/enhance.worker.js`. |
+| Улучшение по яркости, контрастности и цветности | Да. Модель предсказывает параметры яркости, контраста, насыщенности и gamma, затем worker применяет коррекцию к пикселям. |
+| Работоспособность в современных браузерах | Используются стандартные браузерные API: `Web Worker`, `Canvas`, `createImageBitmap`, `Blob`, `EventTarget`. |
+| Код до 10 MB | Да. Production build значительно меньше 10 MB. |
+| Обработка изображений до 15 Мп | Да. В worker есть проверка `MAX_PIXELS = 15_000_000`. |
+| Максимальное время обработки до 30 секунд | Архитектура рассчитана на это ограничение, обработка идет чанками в worker. В интерфейсе показывается время выполнения. |
+| Среднее время обработки около 5 секунд | Зависит от размера изображения и устройства. Для отчета можно проверять по отображаемому времени в интерфейсе. |
+| JPG, PNG, HEIC, BMP | Да. JPG/PNG/BMP декодируются браузером, HEIC/HEIF обрабатывается через `heic2any`. |
+| Асинхронная работа без блокировки браузера | Да. Основная обработка выполняется в `Web Worker`, прогресс отправляется событиями. |
+| Получение изображения через API | Да. Метод `enqueueTask(file)`. |
+| Получение статуса задачи | Да. Метод `getStatus(taskId)`. |
+| Прерывание задачи | Да. Метод `cancelTask(taskId)`. |
+| Получение готового изображения | Да. Метод `getResult(taskId)`. |
+| Событие изменения статуса | Да. Событие `statuschange` содержит id задачи, статус и прогресс. |
+| Выгрузка готового изображения | Да. Результат возвращается как PNG `Blob`, в UI доступна кнопка скачивания. |
+| Публичный хостинг | Подготовлен GitHub Pages workflow. Нужно включить Pages в настройках репозитория. |
+
+## Как запустить
+
+Установить зависимости:
 
 ```bash
 npm install
 ```
 
-Start the local app:
+Запустить локальную версию:
 
 ```bash
 npm.cmd run dev -- --host 127.0.0.1
 ```
 
-Build production files:
+Собрать production-версию:
 
 ```bash
 npm.cmd run build
 ```
 
-Preview production build:
+Посмотреть production-сборку локально:
 
 ```bash
 npm.cmd run preview
 ```
 
-## ML Training
-
-The browser model is stored in:
-
-```text
-src/modelWeights.js
-```
-
-The training notebook is:
-
-```text
-ml/training_and_validation.ipynb
-```
-
-The notebook shows dataset preparation, train/validation split, training loss, validation metrics, and visual examples of:
-
-```text
-low input -> model output -> high target
-```
-
-To regenerate training pairs from high-quality images:
-
-```bash
-python ml/create_synthetic_pairs.py --source "ml/data/high res" --out ml/data/quality_pairs --variants 3 --limit 800 --max-side 512
-```
-
-To train the model and export browser weights:
-
-```bash
-python ml/train_parameter_model.py --dataset ml/data/quality_pairs --out src/modelWeights.js --max-pairs 2400 --validation-split 0.2 --metrics-out ml/training_metrics.json --epochs 4000 --hidden 24
-```
-
-Current training uses an 80/20 split: 1920 training pairs and 480 validation pairs when `--max-pairs 2400` is used.
-
-## Module API
+## API модуля
 
 ```js
 import { ImageEnhancementAPI } from './src/imageApi.js';
@@ -103,16 +112,87 @@ enhancer.addEventListener('statuschange', (event) => {
 });
 ```
 
-## Architecture
+## Порядок работы системы
 
-1. UI receives the source image.
-2. HEIC/HEIF input is converted to PNG when needed.
-3. Worker decodes the image with `createImageBitmap`.
-4. Worker samples image statistics.
-5. ML regressor predicts brightness, contrast, saturation, and gamma.
-6. Worker applies correction in chunks and emits progress.
-7. Worker returns the enhanced image as a PNG `Blob`.
+1. Пользователь выбирает изображение в интерфейсе.
+2. API создает задачу и возвращает `taskId`.
+3. Если файл HEIC/HEIF, он предварительно конвертируется.
+4. Worker декодирует изображение.
+5. Worker проверяет ограничение 15 Мп.
+6. Worker извлекает статистики изображения.
+7. ML-модель подбирает параметры коррекции.
+8. Worker применяет коррекцию по частям, отправляя прогресс.
+9. UI получает результат и показывает сравнение до/после.
+10. Пользователь скачивает готовое изображение.
 
-## Notes
+## Обучение модели
 
-The model is intentionally small because the task requires browser execution and a total code size below 10 MB. It improves tone and color parameters; it is not a super-resolution model and does not reconstruct missing details from heavily pixelated images.
+Notebook для обучения и проверки:
+
+```text
+ml/training_and_validation.ipynb
+```
+
+Сгенерировать обучающие пары:
+
+```bash
+python ml/create_synthetic_pairs.py --source "ml/data/high res" --out ml/data/quality_pairs --variants 3 --limit 800 --max-side 512
+```
+
+Обучить модель и экспортировать веса:
+
+```bash
+python ml/train_parameter_model.py --dataset ml/data/quality_pairs --out src/modelWeights.js --max-pairs 2400 --validation-split 0.2 --metrics-out ml/training_metrics.json --epochs 4000 --hidden 24
+```
+
+В notebook показаны:
+
+- подготовка данных;
+- разделение на train/validation;
+- график ошибки обучения;
+- метрики на validation;
+- визуальные примеры `low input -> model output -> high target`.
+
+## Архитектура
+
+```text
+UI
+  -> ImageEnhancementAPI
+    -> HEIC conversion, if needed
+    -> Web Worker
+      -> image decoding
+      -> feature extraction
+      -> ML parameter prediction
+      -> chunked pixel correction
+      -> PNG Blob result
+```
+
+Ключевые файлы:
+
+- `src/imageApi.js` — публичный API модуля;
+- `src/enhance.worker.js` — обработка изображения и запуск модели;
+- `src/modelWeights.js` — экспортированные веса ML-модели;
+- `ml/train_parameter_model.py` — обучение модели;
+- `ml/create_synthetic_pairs.py` — подготовка обучающих пар;
+- `ml/training_and_validation.ipynb` — обучение, валидация и визуальная проверка;
+- `docs/example_results.jpg` — примеры работы сервиса.
+
+## Хостинг
+
+Проект подготовлен для GitHub Pages. Workflow находится в:
+
+```text
+.github/workflows/deploy.yml
+```
+
+В настройках репозитория нужно включить:
+
+```text
+Settings -> Pages -> Source -> GitHub Actions
+```
+
+После этого деплой запускается автоматически при push в ветку `main`.
+
+## Ограничения
+
+Модель намеренно сделана маленькой, потому что проект должен работать в браузере и укладываться в общий лимит кода 10 MB. Она улучшает тон, яркость, контрастность и цветность изображения, но не является super-resolution моделью и не восстанавливает полностью потерянные детали у сильно пикселизированных изображений.
