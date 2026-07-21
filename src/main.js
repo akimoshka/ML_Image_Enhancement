@@ -13,11 +13,15 @@ const dropzone = $('dropzone');
 const startBtn = $('startBtn');
 const cancelBtn = $('cancelBtn');
 const downloadBtn = $('downloadBtn');
+const fileName = $('fileName');
 const originalPreview = $('originalPreview');
 const resultPreview = $('resultPreview');
 const statusText = $('statusText');
 const progressText = $('progressText');
+const elapsedText = $('elapsedText');
 const progressBar = $('progressBar');
+const taskIdText = $('taskIdText');
+let taskStartedAt = 0;
 
 fileInput.addEventListener('change', () => setFile(fileInput.files?.[0]));
 startBtn.addEventListener('click', startEnhancement);
@@ -62,8 +66,11 @@ function setFile(file) {
   originalUrl = URL.createObjectURL(file);
   originalPreview.src = originalUrl;
   resultPreview.removeAttribute('src');
+  fileName.textContent = file.name || 'Без названия';
+  taskIdText.textContent = 'нет';
   downloadBtn.hidden = true;
   startBtn.disabled = false;
+  taskStartedAt = 0;
   updateProgress('ready', 0);
 }
 
@@ -71,9 +78,11 @@ async function startEnhancement() {
   try {
     startBtn.disabled = true;
     cancelBtn.disabled = false;
+    taskStartedAt = performance.now();
     resultPreview.removeAttribute('src');
     downloadBtn.hidden = true;
     currentTaskId = await enhancer.enqueueTask(currentFile);
+    taskIdText.textContent = currentTaskId;
   } catch (error) {
     updateProgress(error.message, 0);
     startBtn.disabled = false;
@@ -92,21 +101,22 @@ function showResult(blob) {
 function updateProgress(status, progress) {
   statusText.textContent = humanStatus(status);
   progressText.textContent = `${Math.round(progress)}%`;
+  elapsedText.textContent = taskStartedAt ? `${((performance.now() - taskStartedAt) / 1000).toFixed(1)} s` : '0.0 s';
   progressBar.style.width = `${Math.round(progress)}%`;
 }
 
 function humanStatus(status) {
   const map = {
-    ready: 'Image selected',
-    queued: 'Task queued',
-    converting_heic: 'Converting HEIC',
-    decoding: 'Decoding image',
-    analyzing: 'ML model is choosing parameters',
-    enhancing: 'Applying enhancement',
-    encoding: 'Preparing output',
-    done: 'Done',
-    failed: 'Failed',
-    cancelled: 'Cancelled'
+    ready: 'Изображение выбрано',
+    queued: 'В очереди',
+    converting_heic: 'Конвертация HEIC',
+    decoding: 'Декодирование',
+    analyzing: 'Подбор параметров',
+    enhancing: 'Обработка',
+    encoding: 'Подготовка результата',
+    done: 'Готово',
+    failed: 'Ошибка',
+    cancelled: 'Отменено'
   };
   return map[status] || status;
 }

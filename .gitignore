@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.DS_Store
+.vscode/
+*.log
+DIV2K_train_HR/
+DIV2K_valid_HR/
+ml/data/

@@ -1,68 +1,107 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ML Image Enhancement</title>
+    <title>Улучшение изображений в браузере</title>
   </head>
   <body>
     <main class="app">
-      <section class="hero">
-        <div>
-          <p class="eyebrow">Browser ML module</p>
-          <h1>Real-time image enhancement</h1>
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+        </div>
+        <div class="topbar-meta">
+          <span>Улучшение качества</span>
+          <span>до 15 Мп</span>
+          <span>&lt; 10 MB</span>
+        </div>
+      </header>
+
+      <section class="workspace">
+        <section class="intro">
+          <p class="eyebrow">Локальная ML-обработка качества изображения</p>
+          <h1>Улучшение изображений прямо в браузере.</h1>
           <p class="subtitle">
-            Lightweight client-side enhancement for brightness, contrast and colorfulness.
-            Processing runs asynchronously in a Web Worker.
+            Система подбирает параметры улучшения качества изображения и
+            асинхронно применяет коррекцию без отправки файла на сервер.
           </p>
-        </div>
-        <div class="stats">
-          <div><b>≤ 15 MP</b><span>target input size</span></div>
-          <div><b>≤ 30 s</b><span>max target time</span></div>
-          <div><b>&lt; 10 MB</b><span>solution target</span></div>
-        </div>
-      </section>
+        </section>
 
-      <section class="panel">
-        <label class="dropzone" id="dropzone">
-          <input id="fileInput" type="file" accept="image/jpeg,image/png,image/bmp,image/heic,image/heif,.jpg,.jpeg,.png,.bmp,.heic,.heif" />
-          <span>Drop image here or click to upload</span>
-          <small>JPG, PNG, BMP, HEIC/HEIF</small>
-        </label>
+        <section class="control-panel" aria-label="Управление обработкой изображения">
+          <label class="dropzone" id="dropzone">
+            <input id="fileInput" type="file" accept="image/jpeg,image/png,image/bmp,image/heic,image/heif,.jpg,.jpeg,.png,.bmp,.heic,.heif" />
+            <span class="dropzone-title">Выбрать изображение</span>
+            <span class="dropzone-detail">JPG, PNG, BMP, HEIC/HEIF</span>
+          </label>
 
-        <div class="actions">
-          <button id="startBtn" disabled>Enhance image</button>
-          <button id="cancelBtn" disabled class="secondary">Cancel</button>
-          <a id="downloadBtn" hidden download="enhanced-image.png">Download result</a>
-        </div>
-
-        <div class="progress-wrap">
-          <div class="progress-info">
-            <span id="statusText">Waiting for image</span>
-            <span id="progressText">0%</span>
+          <div class="file-line">
+            <span>Файл</span>
+            <strong id="fileName">Файл не выбран</strong>
           </div>
-          <div class="progress"><div id="progressBar"></div></div>
-        </div>
+
+          <div class="actions">
+            <button id="startBtn" disabled>
+              <span class="button-dot"></span>
+              Улучшить
+            </button>
+            <button id="cancelBtn" disabled class="secondary">Отмена</button>
+            <a id="downloadBtn" hidden download="enhanced-image.png">Скачать</a>
+          </div>
+
+          <div class="status-grid">
+            <div>
+              <span>Статус</span>
+              <strong id="statusText">Ожидание</strong>
+            </div>
+            <div>
+              <span>Прогресс</span>
+              <strong id="progressText">0%</strong>
+            </div>
+            <div>
+              <span>Время</span>
+              <strong id="elapsedText">0.0 s</strong>
+            </div>
+          </div>
+
+          <div class="progress" aria-hidden="true"><div id="progressBar"></div></div>
+
+          <div class="task-line">
+            <span>Задача</span>
+            <code id="taskIdText">нет</code>
+          </div>
+        </section>
       </section>
 
-      <section class="preview-grid">
-        <article>
-          <h2>Original</h2>
-          <img id="originalPreview" alt="Original preview" />
+      <section class="preview-grid" aria-label="Сравнение изображений">
+        <article class="preview-panel">
+          <div class="panel-heading">
+            <h2>Оригинал</h2>
+            <span>Исходник</span>
+          </div>
+          <div class="image-stage">
+            <img id="originalPreview" alt="Исходное изображение" />
+            <p class="empty-state">Нет изображения</p>
+          </div>
         </article>
-        <article>
-          <h2>Enhanced</h2>
-          <img id="resultPreview" alt="Enhanced preview" />
+
+        <article class="preview-panel">
+          <div class="panel-heading">
+            <h2>Результат</h2>
+            <span>ML-вывод</span>
+          </div>
+          <div class="image-stage">
+            <img id="resultPreview" alt="Улучшенное изображение" />
+            <p class="empty-state">Ожидание результата</p>
+          </div>
         </article>
       </section>
 
-      <section class="api-card">
-        <h2>Module API</h2>
-        <pre><code>const taskId = await enhancer.enqueueTask(file)
-const status = enhancer.getStatus(taskId)
-enhancer.cancelTask(taskId)
-const blob = enhancer.getResult(taskId)
-enhancer.addEventListener('statuschange', handler)</code></pre>
+      <section class="system-strip" aria-label="Возможности системы">
+        <div><span>API</span><strong>задача / статус / отмена / результат</strong></div>
+        <div><span>Среда</span><strong>Web Worker</strong></div>
+        <div><span>Вывод</span><strong>PNG Blob</strong></div>
+        <div><span>Цель</span><strong>до 30 секунд</strong></div>
       </section>
     </main>
     <script type="module" src="/src/main.js"></script>

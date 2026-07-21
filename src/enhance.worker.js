@@ -1,3 +1,15 @@
+import {
+  FEATURE_MEAN,
+  FEATURE_SCALE,
+  HIDDEN_BIAS,
+  HIDDEN_WEIGHTS,
+  MODEL_VERSION,
+  OUTPUT_BIAS,
+  OUTPUT_WEIGHTS,
+  TARGET_MEAN,
+  TARGET_SCALE
+} from './modelWeights.js';
+
 const cancelled = new Set();
 const MAX_PIXELS = 15_000_000;
 
@@ -24,7 +36,8 @@ self.onmessage = async (event) => {
 
     postStatus(taskId, 'analyzing', 18);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const params = estimateEnhancementParams(imageData.data);
+    const features = extractImageFeatures(imageData.data);
+    const params = predictEnhancementParams(features);
 
     postStatus(taskId, 'enhancing', 28);
     await enhancePixels(taskId, imageData.data, params);
@@ -40,10 +53,13 @@ self.onmessage = async (event) => {
   }
 };
 
-function estimateEnhancementParams(data) {
+function extractImageFeatures(data) {
   const step = Math.max(4, Math.floor(data.length / 220_000) * 4);
   let n = 0, sumL = 0, sumL2 = 0, sumSat = 0;
+  let sumSat2 = 0, sumWarmth = 0, sumGreenBlue = 0;
   let dark = 0, bright = 0;
+  const lumas = [];
+  const saturations = [];
 
   for (let i = 0; i < data.length; i += step) {
     const r = data[i] / 255;
@@ -56,8 +72,13 @@ function estimateEnhancementParams(data) {
     sumL += luma;
     sumL2 += luma * luma;
     sumSat += sat;
+    sumSat2 += sat * sat;
+    sumWarmth += r - b;
+    sumGreenBlue += g - b;
     if (luma < 0.12) dark++;
     if (luma > 0.92) bright++;
+    lumas.push(luma);
+    saturations.push(sat);
     n++;
   }
 
@@ -65,11 +86,64 @@ function estimateEnhancementParams(data) {
   const variance = Math.max(0, sumL2 / n - mean * mean);
   const contrast = Math.sqrt(variance);
   const saturation = sumSat / n;
+  const saturationVariance = Math.max(0, sumSat2 / n - saturation * saturation);
   const darkRatio = dark / n;
   const brightRatio = bright / n;
 
-  // Tiny deterministic “ML-like” regression layer trained by design targets:
-  // target mean ≈ 0.52, contrast ≈ 0.22, saturation ≈ 0.42.
+  lumas.sort((a, b) => a - b);
+  saturations.sort((a, b) => a - b);
+
+  return [
+    mean,
+    contrast,
+    saturation,
+    darkRatio,
+    brightRatio,
+    percentile(lumas, 0.05),
+    percentile(lumas, 0.25),
+    percentile(lumas, 0.5),
+    percentile(lumas, 0.75),
+    percentile(lumas, 0.95),
+    Math.sqrt(saturationVariance),
+    percentile(saturations, 0.5),
+    percentile(saturations, 0.9),
+    sumWarmth / n,
+    sumGreenBlue / n
+  ];
+}
+
+function percentile(values, ratio) {
+  if (!values.length) return 0;
+  const index = Math.min(values.length - 1, Math.max(0, Math.round((values.length - 1) * ratio)));
+  return values[index];
+}
+
+function predictEnhancementParams(features) {
+  if (MODEL_VERSION.startsWith('baseline-')) {
+    return estimateBaselineParams(features);
+  }
+
+  const normalized = features.map((value, index) => (value - FEATURE_MEAN[index]) / FEATURE_SCALE[index]);
+  const hidden = HIDDEN_WEIGHTS.map((weights, row) => {
+    const value = weights.reduce((sum, weight, index) => sum + weight * normalized[index], HIDDEN_BIAS[row]);
+    return Math.max(0, value);
+  });
+
+  const raw = OUTPUT_WEIGHTS.map((weights, row) => {
+    return weights.reduce((sum, weight, index) => sum + weight * hidden[index], OUTPUT_BIAS[row]);
+  });
+
+  const params = raw.map((value, index) => value * TARGET_SCALE[index] + TARGET_MEAN[index]);
+  const brightness = clamp(params[0], -22, 30);
+  const contrastBoost = clamp(1 + (params[1] - 1) * 0.52, 0.92, 1.18);
+  const saturationBoost = clamp(1 + (params[2] - 1) * 0.34, 0.95, 1.12);
+  const gamma = clamp(1 + (params[3] - 1) * 0.9, 0.9, 1.1);
+
+  return { brightness, contrastBoost, saturationBoost, gamma };
+}
+
+function estimateBaselineParams(features) {
+  const [mean, contrast, saturation, darkRatio, brightRatio] = features;
   const brightness = clamp((0.52 - mean) * 72 - brightRatio * 10 + darkRatio * 8, -28, 34);
   const contrastBoost = clamp(1 + (0.22 - contrast) * 1.15, 0.88, 1.32);
   const saturationBoost = clamp(1 + (0.42 - saturation) * 0.85, 0.9, 1.28);
