@@ -4,6 +4,8 @@ dist/
 .DS_Store
 .vscode/
 *.log
+__pycache__/
+*.pyc
 DIV2K_train_HR/
 DIV2K_valid_HR/
 ml/data/
