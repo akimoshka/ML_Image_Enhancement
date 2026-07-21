@@ -185,10 +185,14 @@ UI
 .github/workflows/deploy.yml
 ```
 
-В настройках репозитория нужно включить:
+Workflow собирает проект и публикует содержимое `dist` в ветку `gh-pages`.
+
+После первого успешного запуска workflow в настройках репозитория нужно выбрать:
 
 ```text
-Settings -> Pages -> Source -> GitHub Actions
+Settings -> Pages -> Source -> Deploy from a branch
+Branch -> gh-pages
+Folder -> / (root)
 ```
 
 После этого деплой запускается автоматически при push в ветку `main`.
